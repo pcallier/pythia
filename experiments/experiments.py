@@ -38,6 +38,7 @@ def config_variables():
     BOW_PRODUCT = False
     BOW_COS = False
     BOW_TFIDF = False
+    BOW_BINARY = True
 
     # skipthoughts
     ST_APPEND = False
@@ -107,6 +108,13 @@ def config_variables():
     SVM_KERNEL = 'linear'
     SVM_GAMMA = 'auto'
 
+    SGD = False
+    SGD_LOSS = 'log'
+    SGD_ALPHA = 0.0001
+    SGD_PENALTY = 'l2'
+    SGD_BATCH_SIZE = 128
+    SGD_EPOCHS = 10
+
     # xgboost
     XGB = False
     XGB_LEARNRATE = 0.1
@@ -132,9 +140,17 @@ def config_variables():
     FULL_VOCAB_SIZE = 1000
     FULL_VOCAB_TYPE = 'character'
     FULL_CHAR_VOCAB = "abcdefghijklmnopqrstuvwxyz0123456789,;.!?:'\"/|_@#$%^&*~`+-=<>()[]{}"
-    SEED = None
+    FULL_VOCAB_STEM = False
+    SEED = 41
+    
+    HDF5_PATH_TRAIN=None
+    HDF5_PATH_TEST=None
+    HDF5_SAVE_FREQUENCY=100
+    HDF5_USE_EXISTING=False
 
     USE_CACHE = False
+
+
 
 @xp.automain
 def run_experiment(directory,
@@ -143,6 +159,7 @@ def run_experiment(directory,
             BOW_PRODUCT,
             BOW_COS,
             BOW_TFIDF,
+            BOW_BINARY,
             ST_APPEND,
             ST_DIFFERENCE,
             ST_PRODUCT,
@@ -184,6 +201,12 @@ def run_experiment(directory,
             XGB_MAXDEPTH,
             XGB_MINCHILDWEIGHT,
             XGB_COLSAMPLEBYTREE,
+            SGD,
+            SGD_LOSS,
+            SGD_ALPHA,
+            SGD_PENALTY,
+            SGD_EPOCHS,
+            SGD_BATCH_SIZE,
             MEM_NET,
             MEM_VOCAB,
             MEM_TYPE,
@@ -205,8 +228,18 @@ def run_experiment(directory,
             FULL_VOCAB_SIZE,
             FULL_VOCAB_TYPE,
             FULL_CHAR_VOCAB,
+            FULL_VOCAB_STEM,
             SEED,
-            USE_CACHE):
+            HDF5_PATH_TRAIN,
+            HDF5_PATH_TEST,
+            HDF5_SAVE_FREQUENCY,
+            HDF5_USE_EXISTING,
+            USE_CACHE,
+            _run):
+    # store default metadata
+    USER = os.environ.get('USER', 'unknown user')
+    _run.info = { 'user': USER }
+
     return pythia_main(
         get_args(
             directory,
@@ -215,6 +248,7 @@ def run_experiment(directory,
             BOW_PRODUCT,
             BOW_COS,
             BOW_TFIDF,
+            BOW_BINARY,
             ST_APPEND,
             ST_DIFFERENCE,
             ST_PRODUCT,
@@ -256,6 +290,12 @@ def run_experiment(directory,
             XGB_MAXDEPTH,
             XGB_MINCHILDWEIGHT,
             XGB_COLSAMPLEBYTREE,
+            SGD,
+            SGD_LOSS,
+            SGD_ALPHA,
+            SGD_PENALTY,
+            SGD_EPOCHS,
+            SGD_BATCH_SIZE,
             MEM_NET,
             MEM_VOCAB,
             MEM_TYPE,
@@ -277,6 +317,11 @@ def run_experiment(directory,
             FULL_VOCAB_SIZE,
             FULL_VOCAB_TYPE,
             FULL_CHAR_VOCAB,
+            FULL_VOCAB_STEM,
             SEED,
+            HDF5_PATH_TRAIN,
+            HDF5_PATH_TEST,
+            HDF5_SAVE_FREQUENCY,
+            HDF5_USE_EXISTING,
             USE_CACHE)
     )

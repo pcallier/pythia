@@ -694,12 +694,12 @@ def gen_observations(all_clusters, lookup_order, document_data, features, parame
     # smaller class size for both classes with or w/o replacement
     if 'resampling' in parameters:
         resampling_parameters = parameters['resampling']
-        if 'over' in resampling_parameters:
+        if resampling_parameters.get('over', False):
             desired_size = None
             resampling_parameters['replacement'] = True
         else:
             desired_size = -np.Inf
-        if 'replacement' in resampling_parameters:
+        if resampling_parameters.get('replacement', False):
             replacement = True
         else:
             replacement = False
@@ -771,7 +771,7 @@ def gen_observations(all_clusters, lookup_order, document_data, features, parame
             # Save features and label
             feature_vectors = np.concatenate(feature_vectors, axis=0).astype(dtype)
             # Fail catastrphically on zero vector (not sure if we need this)
-            assert not (feature_vectors < 0.0001).all() 
+            #assert not (feature_vectors < 0.0001).all() 
             data.append(feature_vectors)
         if case["novelty"]:
             labels.append(1)

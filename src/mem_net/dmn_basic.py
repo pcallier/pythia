@@ -8,13 +8,10 @@ from theano.compile.nanguardmode import NanGuardMode
 import lasagne
 from lasagne import layers
 from lasagne import nonlinearities
-try:
-   import cPickle as pickle
-except:
-   import pickle
+import pickle
 
-import utils
-import nn_utils
+from src.mem_net import utils
+from src.mem_net import nn_utils
 
 floatX = theano.config.floatX
 

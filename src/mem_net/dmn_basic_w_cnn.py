@@ -8,13 +8,10 @@ from theano.compile.nanguardmode import NanGuardMode
 import lasagne
 from lasagne import layers
 from lasagne import nonlinearities
-try:
-   import cPickle as pickle
-except:
-   import pickle
+import pickle
 
-import utils
-import nn_utils
+from src.mem_net import utils
+from src.mem_net import nn_utils
 
 floatX = theano.config.floatX
 
@@ -42,6 +39,8 @@ class DMN_basic:
         self.vocab_length = vocab_len
         self.max_doc_length = maximum_doc_len
         self.char_vocab = char_vocab
+
+        self.cnn_layer_length = 100
         
     # Process the input into its different parts and calculate the input mask
         self.train_input_raw, self.train_q_raw, self.train_answer, self.train_input_mask = self._process_input(train_raw)
@@ -49,35 +48,36 @@ class DMN_basic:
         self.vocab_size = len(self.vocab)
 
         print(type(self.train_input_raw), len(self.train_input_raw))
-        self.train_input = self.build_cnn(self.train_input_raw)
-        self.test_input = self.build_cnn(self.test_input_raw)
-        self.train_q = self.build_cnn(self.train_q_raw)
-        self.test_q = self.build_cnn(self.test_q_raw)
+        self.train_input = self.build_cnn(self.train_input_raw).tolist()
+        self.test_input = self.build_cnn(self.test_input_raw).tolist()
+        self.train_q = self.build_cnn(self.train_q_raw).tolist()
+        self.test_q = self.build_cnn(self.test_q_raw).tolist()
+
+        print(type(self.train_input), len(self.train_input), len(self.train_input[1]))
+        print(self.train_answer)
 
         self.input_var = T.matrix('input_var') #previously matrix
         self.q_var = T.matrix('question_var')
         self.answer_var = T.iscalar('answer_var')
         self.input_mask_var = T.ivector('input_mask_var')
 
-        print(self.input_var)
             
         print("==> building input module")
-        self.W_inp_res_in = nn_utils.normal_param(std=0.1, shape=(self.dim, self.word_vector_size))
+        self.W_inp_res_in = nn_utils.normal_param(std=0.1, shape=(self.dim, self.cnn_layer_length))
         self.W_inp_res_hid = nn_utils.normal_param(std=0.1, shape=(self.dim, self.dim))
         self.b_inp_res = nn_utils.constant_param(value=0.0, shape=(self.dim,))
         
-        self.W_inp_upd_in = nn_utils.normal_param(std=0.1, shape=(self.dim, self.word_vector_size))
+        self.W_inp_upd_in = nn_utils.normal_param(std=0.1, shape=(self.dim, self.cnn_layer_length))
         self.W_inp_upd_hid = nn_utils.normal_param(std=0.1, shape=(self.dim, self.dim))
         self.b_inp_upd = nn_utils.constant_param(value=0.0, shape=(self.dim,))
         
-        self.W_inp_hid_in = nn_utils.normal_param(std=0.1, shape=(self.dim, self.word_vector_size))
+        self.W_inp_hid_in = nn_utils.normal_param(std=0.1, shape=(self.dim, self.cnn_layer_length))
         self.W_inp_hid_hid = nn_utils.normal_param(std=0.1, shape=(self.dim, self.dim))
         self.b_inp_hid = nn_utils.constant_param(value=0.0, shape=(self.dim,))
 
         # self.input_var = self.build_cnn(self.input_var)
         # self.q_var = self.build_cnn(self.q_var)
 
-        print(self.input_var)
         
         inp_c_history, _ = theano.scan(fn=self.input_gru_step, 
                     sequences=self.input_var,
@@ -295,43 +295,42 @@ class DMN_basic:
     def build_cnn(self, input_var):
         # We'll create a CNN of two convolution + pooling stages
         # and a fully-connected hidden layer in front of the output layer.
-        print("Will run using CNN")
+
         # Input layer, as usual:
 
-        network = lasagne.layers.InputLayer(shape=(len(input_var), 1, self.vocab_length, self.max_doc_length),
+        network1 = lasagne.layers.InputLayer(shape=(len(input_var), 1, self.vocab_length, self.max_doc_length),
                                              input_var=np.array(input_var))
-        print(network.params)
+        #print(lasagne.layers.get_output(network1, input_var).shape.eval())
         # This time we do not apply input dropout, as it tends to work less well
         # for convolutional layers.
 
         # Convolutional layer with 32 kernels of size 5x5. Strided and padded
         # convolutions are supported as well; see the docstring.
-        network = lasagne.layers.Conv2DLayer(
-                network, num_filters=32, filter_size=(36, 5),
+        network2 = lasagne.layers.Conv2DLayer(
+                network1, num_filters=32, filter_size=(36, 5),
                 nonlinearity=lasagne.nonlinearities.rectify,
                 W=lasagne.init.GlorotUniform(gain=0.25))
         #TODO tweek with smaller range of weights
-        print(network.params)
-        print(network.get_params())
+        #print(lasagne.layers.get_output(network2, input_var).shape.eval())
         # Expert note: Lasagne provides alternative convolutional layers that
         # override Theano's choice of which implementation to use; for details
         # please see http://lasagne.readthedocs.org/en/latest/user/tutorial.html.
 
         # Max-pooling layer of factor 2 in both dimensions:
-        network = lasagne.layers.MaxPool2DLayer(network, pool_size=(1,3))
-
-        # Another convolution with 32 5x5 kernels, and another 2x2 pooling:
-        network = lasagne.layers.Conv2DLayer(
-                network, num_filters=32, filter_size=(1,5),
+        network3 = lasagne.layers.MaxPool2DLayer(network2, pool_size=(1,3))
+        #print(lasagne.layers.get_output(network3, input_var).shape.eval())
+        # # Another convolution with 32 5x5 kernels, and another 2x2 pooling:
+        network4 = lasagne.layers.Conv2DLayer(
+                network3, num_filters=32, filter_size=(1,5),
                 nonlinearity=lasagne.nonlinearities.rectify)
-        network = lasagne.layers.MaxPool2DLayer(network, pool_size=(1,3))
+        network5 = lasagne.layers.MaxPool2DLayer(network4, pool_size=(1,3))
 
         # # A fully-connected layer of 256 units with 50% dropout on its inputs:
-        # network = lasagne.layers.DenseLayer( network,
-        #         #lasagne.layers.dropout(network, p=.5),
-        #         num_units=500,
-        #         nonlinearity=lasagne.nonlinearities.rectify)
-        #
+        network = lasagne.layers.DenseLayer(network5,
+                #lasagne.layers.dropout(network, p=.5),
+                num_units=self.cnn_layer_length,
+                nonlinearity=lasagne.nonlinearities.rectify)
+
         # # And, finally, the final_num_layers-unit output layer with 50% dropout on its inputs:
         # network_final = lasagne.layers.DenseLayer(network,
         #         #lasagne.layers.dropout(network, p=.5),
@@ -339,9 +338,15 @@ class DMN_basic:
         #         nonlinearity=lasagne.nonlinearities.softmax)
 
         #TODO find the CNN params (through network or lasagne) - all of them!!!!
-        print(network.params)
+        # print(network.params)
+        # print(network.get_output_shape_for(input_var))
+        #
+        # print(lasagne.layers.get_output(network, input_var), type(lasagne.layers.get_output(network, input_var)))
+        # print(len(lasagne.layers.get_output(network, input_var).eval()))
+        #print(lasagne.layers.get_output(network, input_var).eval())
+        #print(lasagne.layers.get_all_layers(network))
 
-        return network
+        return lasagne.layers.get_output(network, input_var).eval()
 
     def _process_input(self, data_raw):
         '''
@@ -362,8 +367,8 @@ class DMN_basic:
             # q = x["Q"].lower().split(' ')
             # q = [w for w in q if len(w) > 0]
 
-            inp = utils.get_one_hot_doc(x["C"], self.char_vocab)
-            q = utils.get_one_hot_doc(x["Q"], self.char_vocab)
+            inp = utils.get_one_hot_doc(x["C"], self.char_vocab, max_length=self.max_doc_length)
+            q = utils.get_one_hot_doc(x["Q"], self.char_vocab, max_length=self.max_doc_length)
 
             # # Process the words from the input, answers, and questions to see what needs a new vector in word2vec.
             # inp_vector = [utils.process_word(word = w,
@@ -411,11 +416,11 @@ class DMN_basic:
     
     def get_batches_per_epoch(self, mode):
         if (mode == 'train'):
-            print(self.train_input.output_shape)
-            return self.train_input.output_shape[0]
+            print(len(self.train_input))
+            return len(self.train_input)
             #return len(self.train_input)
         elif (mode == 'test'):
-            return self.test_input.output_shape[0]
+            return len(self.test_input)
             #return len(self.test_input)
         else:
             raise Exception("unknown mode")
@@ -455,12 +460,14 @@ class DMN_basic:
             input_masks = self.test_input_mask
         else:
             raise Exception("Invalid mode")
-            
-        inp = inputs[batch_index]
-        q = qs[batch_index]
+
+        #TODO fix this hack!!!
+        #The mem net expects a 2D array which for the word2vec is (len(words), len(word2vec))
+        inp = [inputs[batch_index],inputs[batch_index]]
+        q = [qs[batch_index], qs[batch_index]]
         ans = answers[batch_index]
         input_mask = input_masks[batch_index]
-
+        #print(inp)
 
 
         skipped = 0

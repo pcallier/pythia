@@ -5,6 +5,7 @@ import numpy as np
 import json
 import re
 import random
+from src.utils.normalize import normalize_and_remove_stop_words
 
 from bs4 import BeautifulSoup
 from sklearn.feature_extraction.stop_words import ENGLISH_STOP_WORDS
@@ -25,7 +26,7 @@ def init_data(fname, seed):
         documents = ""
         inData = open(fname + "/" + f)
         num_files += 1
-        if random.random()>0.4:
+        if random.random()>0.2:
             train_tasks.extend(parse_file(inData, f))
         else:
             test_tasks.extend(parse_file(inData, f))
@@ -45,7 +46,7 @@ def parse_file(inData, f):
             print("Error with file " +  f)
             #continue
         text = post["body_text"]
-        text = text_to_words(text) # call text_to_words to process the text. See text_to_words
+        text = normalize_and_remove_stop_words(text) # call function from pythia normalize
         novelty = post["novelty"]
         task = {"C": "","Q": "", "A": ""}
         if i < 1:
@@ -107,37 +108,6 @@ def get_norm(x):
     x = np.array(x)
     return np.sum(x * x)
 
-def text_to_words(raw_text):
-	'''
-	Algorithm to convert raw text to a return a clean text string
-	Method modified from code available at:
-        https://www.kaggle.com/c/word2vec-nlp-tutorial/details/part-1-for-beginners-bag-of-words
-
-	Args:
-		raw_text: Original text to clean and normalize
-
-	Returns:
-		clean_text: Cleaned text
-	'''
-
-	# 1. Remove HTML
-	#TODO Potentially look into using package other than BeautifulSoup for this step
-	#review_text = BeautifulSoup(raw_text, "lxml").get_text()
-	#
-	# 2. Remove non-letters
-	#letters_only = re.sub("[^a-zA-Z]", " ", review_text)
-	#
-	letters_only = re.sub("[^a-zA-Z]", " ", raw_text)
-	# 3. Convert to lower case, split into individual words
-	words = letters_only.lower().split()
-	#
-	# 4. Remove stop words
-	meaningful_words = [w for w in words if not w in ENGLISH_STOP_WORDS]
-	#
-	# 5. Join the words back into one string separated by space,
-	# and return the result.
-	clean_text = ( " ".join( meaningful_words ))
-	return   clean_text
 
 def get_one_hot_doc(txt, char_vocab, replace_vocab=None, replace_char=' ',
                 min_length=10, max_length=300, pad_out=True,

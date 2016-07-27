@@ -10,7 +10,7 @@ from src.utils import performance_metrics
 
 from src.mem_net import utils
 from src.mem_net import nn_utils
-from src.mem_net import dmn_basic
+from src.mem_net import dmn_basic, dmn_basic_w_cnn
 
 def parse_args(given_args=None):
 
@@ -114,13 +114,13 @@ def run_mem_net(directory, seed=1, word_vector_size=50, network='dmn_basic', bat
             batch_size = 1
         dmn = dmn_basic.DMN_basic(**args_dict) # Initialize the dmn basic with all the arguments available. This also initializes theano functions and parameters.
 
-    # elif args.network =='dmn_cnn':
-    #     raise Exception("Sorry - this isn't working right now!!")
-    #     import dmn_basic_w_cnn
-    #     if (args.batch_size != 1):
-    #         print("==> no minibatch training, argument batch_size is useless")
-    #         args.batch_size = 1
-    #     dmn = dmn_basic_w_cnn.DMN_basic(**args_dict)
+    elif network == 'dmn_cnn':
+        #raise Exception("Sorry - this isn't working right now!!")
+
+        if (batch_size != 1):
+            print("==> no minibatch training, argument batch_size is useless")
+            batch_size = 1
+        dmn = dmn_basic_w_cnn.DMN_basic(**args_dict)
     #
     # elif args.network == 'dmn_smooth':
     #     import dmn_smooth
@@ -136,8 +136,8 @@ def run_mem_net(directory, seed=1, word_vector_size=50, network='dmn_basic', bat
     #         args.batch_size = 1
     #     dmn = dmn_qa_draft.DMN_qa(**args_dict)
     #
-    # else:
-    #     raise Exception("No such network known: " + network)
+    else:
+        raise Exception("No such network known: " + network)
 
 
     if load_state != "":

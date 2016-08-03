@@ -144,7 +144,7 @@ def get_args():
     MEM_NET = True
     #The memory network vocab uses Glove which can be 50, 100, 200 or 300 depending on the models you have in /data/glove
     MEM_VOCAB = 50
-    MEM_TYPE = 'dmn_basic'
+    MEM_TYPE = 'dmn_cnn'
     MEM_BATCH = 1
     MEM_EPOCHS = 5
 

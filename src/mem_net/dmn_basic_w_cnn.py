@@ -48,18 +48,22 @@ class DMN_basic:
         self.vocab_size = len(self.vocab)
 
         print(type(self.train_input_raw), len(self.train_input_raw))
-        self.train_input = self.build_cnn(self.train_input_raw).tolist()
-        self.test_input = self.build_cnn(self.test_input_raw).tolist()
-        self.train_q = self.build_cnn(self.train_q_raw).tolist()
-        self.test_q = self.build_cnn(self.test_q_raw).tolist()
-
-        print(type(self.train_input), len(self.train_input), len(self.train_input[1]))
+        self.train_input = self.build_cnn(self.train_input_raw)
+        self.test_input = self.build_cnn(self.test_input_raw)
+        self.train_q = self.build_cnn(self.train_q_raw)
+        self.test_q = self.build_cnn(self.test_q_raw)
+        #print(self.train_input.shape.eval(), self.train_input.__getitem__(0).eval())
+        #print(type(self.train_input), len(self.train_input), len(self.train_input[1]))
+        #print(type(self.train_input), len(self.train_input), len(self.train_input[1]))
         print(self.train_answer)
 
         self.input_var = T.matrix('input_var') #previously matrix
         self.q_var = T.matrix('question_var')
         self.answer_var = T.iscalar('answer_var')
         self.input_mask_var = T.ivector('input_mask_var')
+
+        #CNN
+
 
             
         print("==> building input module")
@@ -169,8 +173,10 @@ class DMN_basic:
                   self.W_mem_res_in, self.W_mem_res_hid, self.b_mem_res, 
                   self.W_mem_upd_in, self.W_mem_upd_hid, self.b_mem_upd,
                   self.W_mem_hid_in, self.W_mem_hid_hid, self.b_mem_hid,
-                  self.W_b, self.W_1, self.W_2, self.b_1, self.b_2, self.W_a]
+                  self.W_b, self.W_1, self.W_2, self.b_1, self.b_2, self.W_a
+                  , self.net_w]#, self.net4_w]#, self.net_w]
         #TODO add in the cnn params
+        #raise
         
         if self.answer_module == 'recurrent':
             self.params = self.params + [self.W_ans_res_in, self.W_ans_res_hid, self.b_ans_res, 
@@ -296,11 +302,22 @@ class DMN_basic:
         # We'll create a CNN of two convolution + pooling stages
         # and a fully-connected hidden layer in front of the output layer.
 
+        params = []
+        #Set up weight parameters so that they can be added to the model
+        #self.net2_w = nn_utils.normal_param(std=0.1, shape=(32, 1, self.vocab_length, self.max_doc_length))
+        self.net2_w = theano.shared(lasagne.init.GlorotUniform(gain=0.25).sample((32,1,36,5)))
+        self.net4_w = theano.shared(lasagne.init.GlorotUniform(gain=0.25).sample((32,32,1,5)))
+        self.net_w = theano.shared(lasagne.init.GlorotUniform(gain=0.25).sample(( 2080, 100)))
+        #self.net2_w = lasagne.init.GlorotUniform(gain=0.25)
+        #self.net4_w = lasagne.init.GlorotUniform(gain=0.25)
+        #self.net_w = lasagne.init.GlorotUniform(gain=0.25)
+
+
         # Input layer, as usual:
 
         network1 = lasagne.layers.InputLayer(shape=(len(input_var), 1, self.vocab_length, self.max_doc_length),
                                              input_var=np.array(input_var))
-        #print(lasagne.layers.get_output(network1, input_var).shape.eval())
+        print(lasagne.layers.get_output(network1, input_var).shape.eval())
         # This time we do not apply input dropout, as it tends to work less well
         # for convolutional layers.
 
@@ -309,27 +326,30 @@ class DMN_basic:
         network2 = lasagne.layers.Conv2DLayer(
                 network1, num_filters=32, filter_size=(36, 5),
                 nonlinearity=lasagne.nonlinearities.rectify,
-                W=lasagne.init.GlorotUniform(gain=0.25))
+                W=self.net2_w)
         #TODO tweek with smaller range of weights
-        #print(lasagne.layers.get_output(network2, input_var).shape.eval())
+        #print(network2.params.values())
+        print("net2 ", lasagne.layers.get_output(network2, input_var).shape.eval())
         # Expert note: Lasagne provides alternative convolutional layers that
         # override Theano's choice of which implementation to use; for details
         # please see http://lasagne.readthedocs.org/en/latest/user/tutorial.html.
 
         # Max-pooling layer of factor 2 in both dimensions:
         network3 = lasagne.layers.MaxPool2DLayer(network2, pool_size=(1,3))
-        #print(lasagne.layers.get_output(network3, input_var).shape.eval())
+        print("net3 ", lasagne.layers.get_output(network3, input_var).shape.eval())
         # # Another convolution with 32 5x5 kernels, and another 2x2 pooling:
-        network4 = lasagne.layers.Conv2DLayer(
-                network3, num_filters=32, filter_size=(1,5),
-                nonlinearity=lasagne.nonlinearities.rectify)
-        network5 = lasagne.layers.MaxPool2DLayer(network4, pool_size=(1,3))
+        # network4 = lasagne.layers.Conv2DLayer(
+        #         network3, num_filters=32, filter_size=(1,5),
+        #         nonlinearity=lasagne.nonlinearities.rectify,
+        #         W=self.net4_w)
+        # network5 = lasagne.layers.MaxPool2DLayer(network4, pool_size=(1,3))
+        # print(lasagne.layers.get_output(network5, input_var).shape.eval())
 
-        # # A fully-connected layer of 256 units with 50% dropout on its inputs:
-        network = lasagne.layers.DenseLayer(network5,
+        # # A fully-connected layer of 256 units
+        network = lasagne.layers.DenseLayer(network3,
                 #lasagne.layers.dropout(network, p=.5),
                 num_units=self.cnn_layer_length,
-                nonlinearity=lasagne.nonlinearities.rectify)
+                nonlinearity=lasagne.nonlinearities.rectify, W=self.net_w)
 
         # # And, finally, the final_num_layers-unit output layer with 50% dropout on its inputs:
         # network_final = lasagne.layers.DenseLayer(network,
@@ -338,7 +358,9 @@ class DMN_basic:
         #         nonlinearity=lasagne.nonlinearities.softmax)
 
         #TODO find the CNN params (through network or lasagne) - all of them!!!!
-        # print(network.params)
+        print(network.params)
+        print("here")
+        #print(lasagne.utils.collect_shared_vars("regularizable"))
         # print(network.get_output_shape_for(input_var))
         #
         # print(lasagne.layers.get_output(network, input_var), type(lasagne.layers.get_output(network, input_var)))
@@ -346,7 +368,8 @@ class DMN_basic:
         #print(lasagne.layers.get_output(network, input_var).eval())
         #print(lasagne.layers.get_all_layers(network))
 
-        return lasagne.layers.get_output(network, input_var).eval()
+        #return lasagne.layers.get_output(network, input_var)
+        return network
 
     def _process_input(self, data_raw):
         '''
@@ -417,11 +440,11 @@ class DMN_basic:
     def get_batches_per_epoch(self, mode):
         if (mode == 'train'):
             print(len(self.train_input))
-            return len(self.train_input)
             #return len(self.train_input)
+            return self.train_input.shape.eval()[0]
         elif (mode == 'test'):
-            return len(self.test_input)
             #return len(self.test_input)
+            return self.test_input.shape.eval()[0]
         else:
             raise Exception("unknown mode")
     
@@ -468,6 +491,7 @@ class DMN_basic:
         ans = answers[batch_index]
         input_mask = input_masks[batch_index]
         #print(inp)
+        inp = [inputs.__getitem__(0)]
 
 
         skipped = 0

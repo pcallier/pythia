@@ -5,10 +5,10 @@ language: python
 services:
   - docker
 
-before_install:
+script:
   - docker build -t pcallier/pythia .
-install:
   - docker run pcallier/pythia experiments/experiments.py
+
 after_success:
   - if [ "$TRAVIS_BRANCH" == "master" ]; then
     docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD";
